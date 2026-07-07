@@ -1,0 +1,42 @@
+name: Pre-Training Privacy Gate Simulation Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  run-privacy-firewall:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository Source
+      uses: actions/checkout@v4
+
+    - name: Initialize Python Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy pandas matplotlib
+
+    # ─── CORE QUALITY GATE STEP ───
+    - name: Run Pre-Training Privacy Firewall Gate
+      id: privacy_gate
+      run: |
+        python3 sprint3_k_anonymity_gate.py --profile equal --data_path ./equal/client_0.csv
+      # To test a false-positive override, you can uncomment the line below:
+      # env:
+      #   ANONYMITY_GATE_OVERRIDE: "TRUE"
+
+    # ─── SUCCESS PATH (Runs ONLY if the gate exits with 0) ───
+    - name: Trigger Downstream Federated Model Update
+      if: success()
+      run: |
+        python3 execute_model_update.py
+
+    # ─── REJECTION PATH (Runs ONLY if the gate exits with 1) ───
+    - name: Execute Rejection Quarantine & Email Alerts
+      if: failure()
+      run: |
+        python3 trigger_quarantine_alert.py
