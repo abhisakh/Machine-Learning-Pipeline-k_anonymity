@@ -254,13 +254,33 @@ if __name__ == "__main__":
 
     try:
         result = run_pre_train_firewall(args.profile, Path(args.data_path))
+
+        # ─── ADDED: AUTOMATED GITHUB RUNNER SUMMARY DATA ───
+        # Writes directly to GitHub's environment logging pipeline
+        github_summary = os.getenv("GITHUB_STEP_SUMMARY")
+        if github_summary:
+            with open(github_summary, "w") as summary_file:
+                summary_file.write(f"# 🛡️ Privacy Gate Operational Report\n")
+                summary_file.write(f"**Verdict:** `{result['verdict']}`\n")
+                summary_file.write(f"**Profile Context:** `{result['profile_context']}`\n\n")
+                summary_file.write(f"### 📊 Telemetry Metrics Breakdown\n")
+                summary_file.write(f"| Metric Name | Required Boundary | Observed Data Value |\n")
+                summary_file.write(f"| --- | --- | --- |\n")
+                summary_file.write(f"| Group Size ($k$) | $\ge$ {result['metrics']['calibrated_k_bound']} | **{result['metrics']['observed_minimum_k']}** |\n")
+                summary_file.write(f"| Sufficiency Count | $\ge$ {result['metrics']['min_rows_for_epsilon_sufficiency']} rows | **{result['metrics']['retained_records_count']}** rows |\n")
+                summary_file.write(f"| Data Sacrifice | $\le$ {result['metrics']['max_allowed_sacrifice_pct']}% | **{result['metrics']['observed_sacrifice_pct']:.2f}%** |\n\n")
+
+                if result["rejected"]:
+                    summary_file.write(f"### 🚨 Compliance Violations Detected:\n")
+                    for reason in result["reasons"]:
+                        summary_file.write(f"- {reason}\n")
+                    summary_file.write(f"\n> 💡 *Reviewer Note:* To bypass this block, inspect the diagnostic plot artifact attached below and click **Review Deployment -> Approve** if this constitutes an acceptable false positive.\n")
+
         print(json.dumps(result, indent=2))
 
         if result["rejected"]:
-            print(f"\n[-] DATA PIPELINE REJECTED: Shard fails privacy/sufficiency limits.", file=sys.stderr)
-            sys.exit(1) # Fail and halt CI/CD build execution
+            sys.exit(1)
         else:
-            print(f"\n[✓] DATA PIPELINE PASSED: Dataset cleared for training.")
             sys.exit(0)
 
     except Exception as exc:

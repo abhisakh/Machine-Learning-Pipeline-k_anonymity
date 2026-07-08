@@ -26,6 +26,15 @@ jobs:
       run: |
         python3 sprint3_k_anonymity_gate.py --profile equal --data_path ./equal/client_0.csv
 
+    # ─── ADDED: UPLOAD DIAGNOSTIC FIGURES TO DASHBOARD ───
+    - name: Archive Diagnostic Plot Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: privacy-pipeline-plots
+        path: analysis/temp_diagnostics_pipeline_*.png
+        retention-days: 5
+
+    # Record if it passed or failed to pass to the next job
     - name: Determine Verdict
       id: check_step
       run: |
