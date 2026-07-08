@@ -48,12 +48,11 @@ jobs:
     - name: Trigger Automated Update
       run: python3 execute_model_update.py
 
-  # JOB 2B: Human Review Path (Fires ONLY if data breaks the rule)
+ # JOB 2B: Human Review Path (Fires ONLY if data breaks the rule)
   human-triage-panel:
     needs: evaluate-privacy-gate
     if: needs:evaluate-privacy-gate.outputs.gate_verdict == 'FAILED'
     runs-on: ubuntu-latest
-    # This environment key forces GitHub to halt and render the "Approve/Reject" button!
     environment: production-gatekeeper
 
     steps:
@@ -70,8 +69,14 @@ jobs:
 
     - name: Fire Quarantine and Dispatches Warning Email
       run: python3 trigger_quarantine_alert.py
+      # ─── MAPPING YOUR ACTIVE ENVIRONMENT SETTINGS HERE ───
+      env:
+        SECURITY_ALERT_SENDER: "abhisakh@gmail.com"
+        SECURITY_ALERT_RECIPIENT: "abhisakh@gmail.com"
+        SMTP_SERVER: "smtp.gmail.com"
+        SMTP_PORT: 587
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }} # Pulled securely from GitHub Secrets
 
-    # If you click "Approve" on the GitHub UI, this step un-blocks and runs the ML models
     - name: Execute Override Deployment
       run: |
         echo "[⚠️ OVERRIDE] Manual clearance granted by administrator panel."

@@ -19,12 +19,12 @@ from pathlib import Path
 
 def send_security_email(incident_id: str, email_body: str):
     """Handles the live SMTP transmission using secure environment secrets."""
-    # Read email configurations from environment variables (set via GitHub Secrets)
-    sender_email = os.getenv("SECURITY_ALERT_SENDER", "privacy-bot@yourdomain.com")
-    recipient_email = os.getenv("SECURITY_ALERT_RECIPIENT", "data-gov-alerts@yourdomain.com")
+    # Pulls the variables directly out of the GitHub Runner container environment
+    sender_email = os.getenv("SECURITY_ALERT_SENDER", "abhisakh@gmail.com")
+    recipient_email = os.getenv("SECURITY_ALERT_RECIPIENT", "abhisakh@gmail.com")
     smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_password = os.getenv("EMAIL_PASSWORD") # Locked behind GitHub Secrets
+    smtp_password = os.getenv("EMAIL_PASSWORD")
 
     if not smtp_password:
         print("\n[⚠️ WARNING] 'EMAIL_PASSWORD' environment secret not found.")
