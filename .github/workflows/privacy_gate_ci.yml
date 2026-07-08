@@ -3,13 +3,11 @@ name: Pre-Training Privacy Gate End-To-End Simulation
 on: [push, pull_request]
 
 jobs:
-  # JOB 1: Test the incoming clinic data
-  evaluate-privacy-gate:
+  privacy-firewall-pipeline:
     runs-on: ubuntu-latest
-    outputs:
-      gate_verdict: ${{ steps.check_step.outputs.gate_status }}
+
     steps:
-    - name: Checkout Source
+    - name: Checkout Source Code
       uses: actions/checkout@v4
 
     - name: Initialize Python
@@ -20,65 +18,35 @@ jobs:
     - name: Install Dependencies
       run: pip install pandas numpy matplotlib
 
+    # ─── CORE QUALITY GATE STEP ───
     - name: Execute Privacy Firewall Gate
       id: run_gate
-      # We use 'continue-on-error' so the script failing doesn't break our routing logic
+      # continue-on-error allows us to run the quarantine/email logic if the gate fails
       continue-on-error: true
       run: |
         python3 sprint3_k_anonymity_gate.py --profile equal --data_path ./equal/client_0.csv
+      env:
+        # FALSE POSITIVE OVERRIDE: Change this to "TRUE" here if you need to manually
+        # force a deployment after a false-positive alarm block. Leave as "FALSE" normally.
+        ANONYMITY_GATE_OVERRIDE: "FALSE"
 
-    # Record if it passed or failed to pass to the next job
-    - name: Determine Verdict
-      id: check_step
-      run: |
-        if [ "${{ steps.run_gate.outcome }}" = "success" ]; then
-          echo "gate_status=PASSED" >> $GITHUB_OUTPUT
-        else
-          echo "gate_status=FAILED" >> $GITHUB_OUTPUT
-        end
-
-  # JOB 2A: Automated Success Path (Runs instantly if Job 1 passes)
-  automated-ml-deployment:
-    needs: evaluate-privacy-gate
-    if: needs:evaluate-privacy-gate.outputs.gate_verdict == 'PASSED'
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Source
-      uses: actions/checkout@v4
-    - name: Trigger Automated Update
-      run: python3 execute_model_update.py
-
- # JOB 2B: Human Review Path (Fires ONLY if data breaks the rule)
-  human-triage-panel:
-    needs: evaluate-privacy-gate
-    if: needs:evaluate-privacy-gate.outputs.gate_verdict == 'FAILED'
-    runs-on: ubuntu-latest
-    environment: production-gatekeeper
-
-    steps:
-    - name: Checkout Source
-      uses: actions/checkout@v4
-
-    - name: Initialize Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Install Dependencies
-      run: pip install pandas numpy matplotlib
-
+    # ─── REJECTION PATH (Runs ONLY if the gate step fails with exit code 1) ───
     - name: Fire Quarantine and Dispatches Warning Email
-      run: python3 trigger_quarantine_alert.py
-      # ─── MAPPING YOUR ACTIVE ENVIRONMENT SETTINGS HERE ───
+      if: steps.run_gate.outcome == 'failure'
+      run: |
+        python3 trigger_quarantine_alert.py
       env:
         SECURITY_ALERT_SENDER: "abhisakh@gmail.com"
         SECURITY_ALERT_RECIPIENT: "abhisakh@gmail.com"
         SMTP_SERVER: "smtp.gmail.com"
         SMTP_PORT: 587
-        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }} # Pulled securely from GitHub Secrets
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
 
-    - name: Execute Override Deployment
+    # ─── SEPARATION DEPLOYMENT GATEWAY ───
+    - name: Trigger Automated Update
+      # This step builds if the gate naturally passed OR if you explicitly applied the override token above
+      if: |
+        steps.run_gate.outcome == 'success' ||
+        contains(fromJSON('["TRUE"]'), env.ANONYMITY_GATE_OVERRIDE)
       run: |
-        echo "[⚠️ OVERRIDE] Manual clearance granted by administrator panel."
-        export ANONYMITY_GATE_OVERRIDE="TRUE"
         python3 execute_model_update.py
