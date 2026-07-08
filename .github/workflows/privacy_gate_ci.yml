@@ -51,8 +51,7 @@ jobs:
     needs: evaluate-privacy-gate
     if: needs.evaluate-privacy-gate.outputs.gate_verdict == 'FAILED'
     runs-on: ubuntu-latest
-    # This key forces GitHub to halt execution and display the interactive UI panel
-    environment: production-gatekeeper
+    environment: production-gatekeeper # Triggers the real GitHub Override Panel UI
 
     steps:
     - name: Checkout Source
@@ -63,17 +62,21 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Dependencies
-      run: pip install pandas numpy matplotlib
+    - name: Install Linux Mail Simulator Tools
+      run: |
+        pip install pandas numpy matplotlib secure-smtpd
+        # Starts a completely local, background SMTP server on localhost port 1025
+        python -m secure_smtpd (localhost, 1025) &
+        sleep 2
 
     - name: Fire Quarantine and Dispatches Warning Email
       run: python3 trigger_quarantine_alert.py
       env:
-        SECURITY_ALERT_SENDER: "alerts@yourdomain.com" # Your free mail relay sender
-        SECURITY_ALERT_RECIPIENT: "abhisakh@gmail.com" # Your real inbox
-        SMTP_SERVER: "smtp.sendgrid.net"               # Free 2FA-free alternative provider
-        SMTP_PORT: 587
-        EMAIL_PASSWORD: ${{ secrets.SMTP_RELAY_PASSWORD }}
+        SECURITY_ALERT_SENDER: "privacy-firewall@localhost"
+        SECURITY_ALERT_RECIPIENT: "abhisakh@gmail.com"
+        SMTP_SERVER: "127.0.0.1" # Loops back locally inside the GitHub container
+        SMTP_PORT: 1025
+        EMAIL_PASSWORD: "mock_sandbox_token"
 
     - name: Execute Override Deployment
       run: |
