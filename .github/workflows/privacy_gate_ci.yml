@@ -1,42 +1,79 @@
-name: Pre-Training Privacy Gate Simulation Pipeline
+name: Pre-Training Privacy Gate End-To-End Simulation
 
 on: [push, pull_request]
 
 jobs:
-  run-privacy-firewall:
+  # JOB 1: Test the incoming clinic data
+  evaluate-privacy-gate:
     runs-on: ubuntu-latest
-
+    outputs:
+      gate_verdict: ${{ steps.check_step.outputs.gate_status }}
     steps:
-    - name: Checkout Repository Source
+    - name: Checkout Source
       uses: actions/checkout@v4
 
-    - name: Initialize Python Environment
+    - name: Initialize Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install numpy pandas matplotlib
+      run: pip install pandas numpy matplotlib
 
-    # ─── CORE QUALITY GATE STEP ───
-    - name: Run Pre-Training Privacy Firewall Gate
-      id: privacy_gate
+    - name: Execute Privacy Firewall Gate
+      id: run_gate
+      # We use 'continue-on-error' so the script failing doesn't break our routing logic
+      continue-on-error: true
       run: |
         python3 sprint3_k_anonymity_gate.py --profile equal --data_path ./equal/client_0.csv
-      # To test a false-positive override, you can uncomment the line below:
-      # env:
-      #   ANONYMITY_GATE_OVERRIDE: "TRUE"
 
-    # ─── SUCCESS PATH (Runs ONLY if the gate exits with 0) ───
-    - name: Trigger Downstream Federated Model Update
-      if: success()
+    # Record if it passed or failed to pass to the next job
+    - name: Determine Verdict
+      id: check_step
       run: |
+        if [ "${{ steps.run_gate.outcome }}" = "success" ]; then
+          echo "gate_status=PASSED" >> $GITHUB_OUTPUT
+        else
+          echo "gate_status=FAILED" >> $GITHUB_OUTPUT
+        end
+
+  # JOB 2A: Automated Success Path (Runs instantly if Job 1 passes)
+  automated-ml-deployment:
+    needs: evaluate-privacy-gate
+    if: needs:evaluate-privacy-gate.outputs.gate_verdict == 'PASSED'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Source
+      uses: actions/checkout@v4
+    - name: Trigger Automated Update
+      run: python3 execute_model_update.py
+
+  # JOB 2B: Human Review Path (Fires ONLY if data breaks the rule)
+  human-triage-panel:
+    needs: evaluate-privacy-gate
+    if: needs:evaluate-privacy-gate.outputs.gate_verdict == 'FAILED'
+    runs-on: ubuntu-latest
+    # This environment key forces GitHub to halt and render the "Approve/Reject" button!
+    environment: production-gatekeeper
+
+    steps:
+    - name: Checkout Source
+      uses: actions/checkout@v4
+
+    - name: Initialize Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Dependencies
+      run: pip install pandas numpy matplotlib
+
+    - name: Fire Quarantine and Dispatches Warning Email
+      run: python3 trigger_quarantine_alert.py
+
+    # If you click "Approve" on the GitHub UI, this step un-blocks and runs the ML models
+    - name: Execute Override Deployment
+      run: |
+        echo "[⚠️ OVERRIDE] Manual clearance granted by administrator panel."
+        export ANONYMITY_GATE_OVERRIDE="TRUE"
         python3 execute_model_update.py
-
-    # ─── REJECTION PATH (Runs ONLY if the gate exits with 1) ───
-    - name: Execute Rejection Quarantine & Email Alerts
-      if: failure()
-      run: |
-        python3 trigger_quarantine_alert.py
