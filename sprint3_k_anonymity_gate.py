@@ -22,8 +22,8 @@ QI_COLUMNS = ["Age", "Sex_male", "Education", "PovertyRatio"]
 
 # Placeholder thresholds aligned with site-fraction profile skews
 GUY_BENCHMARK_OPERATING_POINTS = {
-    #"equal":   {"K_TARGET": 5,  "TARGET_EPSILON": 1.5, "MIN_SUFFICIENT_ROWS": 1200, "MAX_SACRIFICE_PCT": 30.0},
-    "equal":   {"K_TARGET": 100,  "TARGET_EPSILON": 1.5, "MIN_SUFFICIENT_ROWS": 1200, "MAX_SACRIFICE_PCT": 30.0},
+    "equal":   {"K_TARGET": 5,  "TARGET_EPSILON": 1.5, "MIN_SUFFICIENT_ROWS": 1200, "MAX_SACRIFICE_PCT": 30.0},
+    #"equal":   {"K_TARGET": 100,  "TARGET_EPSILON": 1.5, "MIN_SUFFICIENT_ROWS": 1200, "MAX_SACRIFICE_PCT": 30.0},
     "mild":    {"K_TARGET": 5,  "TARGET_EPSILON": 2.0, "MIN_SUFFICIENT_ROWS": 1000, "MAX_SACRIFICE_PCT": 35.0},
     "strong":  {"K_TARGET": 8,  "TARGET_EPSILON": 3.5, "MIN_SUFFICIENT_ROWS": 800,  "MAX_SACRIFICE_PCT": 40.0},
     "extreme": {"K_TARGET": 12, "TARGET_EPSILON": 5.0, "MIN_SUFFICIENT_ROWS": 600,  "MAX_SACRIFICE_PCT": 45.0}
